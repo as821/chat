@@ -250,9 +250,29 @@ void* group_handler(void* arg) {
             pthread_mutex_unlock(&message_lock);
         }                                                                       // close infinite loop
     }
-    catch( ... ) {
+    catch( std::invalid_argument &e ) {
         pthread_t my_tid = pthread_self();
         std::cout << "in thread ID: " << my_tid << "... " << e.what() << std::endl;
+
+        close( *(int*)arg );                                                    // close or shutdown socket
+        delete( (int*) arg );                                                   // runs for long time.  Release memory
+        arg = NULL;                                                             // set connfd pointer to null
+
+
+        pthread_mutex_lock(&connections_lock);
+        for(int i = 0; i < connection_stack.size(); i++) {
+            if(my_tid == connection_stack[i])
+                connection_stack.erase(connection_stack.begin() + i);           // remove this connection from vector
+            else {
+                std::cout << "my_tid not found in connection_stack" << std::endl;
+            }
+        }
+        pthread_mutex_unlock(&connections_lock);
+    }
+    catch( ... ) {
+        pthread_t my_tid = pthread_self();
+        std::cout << "in thread ID: " << my_tid << "... ";
+        std::cout << "unknown exception in group_handler.  Connection ending now" << std::endl;
 
         close( *(int*)arg );                                                    // close or shutdown socket
         delete( (int*) arg );                                                   // runs for long time.  Release memory
