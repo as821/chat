@@ -32,7 +32,7 @@ void server_chat(int sockfd) {
                 recvline[n] = '\0';                             // ensure null-termination
                 input_filtering(recvline, overread, &num_bytes, &expect_file, &get_bits, n);    // check for keywords
             }
-            else {  // file expected from client
+            if(expect_file) {                                   // file expected from client
                 std::cout << "file expected...\n";
                 file_recv_handling(sockfd, recvline, DEST_FILENAME, num_bytes, get_bits);   // handle file reception
                 expect_file = false;                            // reset file expected flag
