@@ -1,5 +1,28 @@
 #include "main.h"
 
+int message_id_counter;                                         // local definition of global variable
+// Group_Message constructor
+Group_Message::Group_Message() {
+    if(++message_id_counter == INT_MAX) {                       // wrap around max int value (2147483647)
+        message_id_counter -= INT_MAX;
+    }
+    message_id = message_id_counter;
+
+    msg_len = MAXLINE;
+    msg = new char[msg_len];
+    msg_dynamic_alloc = true;
+}   // END constructor
+
+
+
+Group_Message::~Group_Message() {
+    if(msg_dynamic_alloc) {
+        delete[] msg;
+    }
+}   // END destructor
+
+
+
 /*    wrapper functions   */
 // Socket
 int Socket (int family, int type, int protocol) {
@@ -84,14 +107,23 @@ void send_file(std::string file_path, int sockfd) {
     // open file
     std::ifstream source_file;
     source_file.open(file_path.c_str());
+    if(source_file) {
+        std::cout << "\nfile being sent.  Please wait...\n";
+        // put source file into memory buffer
+        source_file.seekg(0, std::ios::end);                    // go to the end of file
+        length = source_file.tellg();                           // report location (this is the length)
+        source_file.seekg(0, std::ios::beg);                    // go back to the beginning
+        store_buffer = new char[length];                        // allocate memory for a buffer of appropriate dimension
+        source_file.read(store_buffer, length);                 // read the whole file into the buffer
+        source_file.close();                                    // close file handle
+    }
+    else{
+        std::cout << "ERROR: file does not exist or does not have necessary permissions\n";
+        std::cin.ignore(1000, '\n');
+        return;
+    }
 
-    // put source file into memory buffer
-    source_file.seekg(0, std::ios::end);                    // go to the end of file
-    length = source_file.tellg();                           // report location (this is the length)
-    source_file.seekg(0, std::ios::beg);                    // go back to the beginning
-    store_buffer = new char[length];                        // allocate memory for a buffer of appropriate dimension
-    source_file.read(store_buffer, length);                 // read the whole file into the buffer
-    source_file.close();                                    // close file handle
+
 
     // send prep notifications (notification then num whole buffers)
     char prep_message[12] = "//PRE_FILE\0";
@@ -100,7 +132,7 @@ void send_file(std::string file_path, int sockfd) {
     // alert to num bytes to expect
     std::string s = std::to_string(length);
     const char *len_data = s.c_str();
-//    std::cout << "amt. data to send: " << len_data << std::endl;    // debug output
+    std::cout << "amt. data to send: " << len_data << " bytes" << std::endl;
     uint32_t len_out = htonl(length);                       // set to network byte order
     Write(sockfd, &len_out, sizeof(len_out));               // output to socket
 
@@ -108,8 +140,8 @@ void send_file(std::string file_path, int sockfd) {
     // calculate number of buffers to fill
     int whole = length / (MAXLINE-1);                       // num full buffers to fill. leave room for null termination
     int partial = length % (MAXLINE-1);                     // final bits to send
-//    std::cout << "whole buffers: " << whole << std::endl;   // debug output
-//    std::cout << "partial buffers: " << partial << std::endl;   // debug output
+    std::cout << "whole buffers: " << whole << std::endl;   // debug output
+    std::cout << "partial buffers: " << partial << std::endl;   // debug output
 
     // determine subscripts to read from store_buffer
     start_sub = 0;
@@ -130,34 +162,36 @@ void send_file(std::string file_path, int sockfd) {
         out_buffer[MAXLINE] = '\0';                         // null terminate transmission
 
         // debug output
-//        std::cout << "\nwhole" << i <<": \n";
-//        for( int y = 0; y < MAXLINE; y++) {
-//            std::cout <<  out_buffer[y];
-//        }
-//        std::cout << '\n';
+        std::cout << "\nwhole" << i <<": \n";
+        for( int y = 0; y < MAXLINE; y++) {
+            std::cout <<  out_buffer[y];
+        }
+        std::cout << '\n';
 
         Write(sockfd, out_buffer, MAXLINE);                 // output to socket
         start_sub = end_sub + 1;                            // reset reading subscripts for next buffer
         end_sub += MAXLINE;
     }
 
-//    std::cout << "\npartial: \n";                         // debug output
+    std::cout << "\npartial: \n";                         // debug output
     for(int x = 0; x < partial; x++) {                      // send partial buffer ( < not <= )
         out_buffer[x] = store_buffer[start_sub+x];          // start_sub+j avoids resending portions of file
     }
     out_buffer[partial] = '\0';                             // null terminate buffer
 
-//    // debug output
-//    for( int y = 0; y < partial; y++) {
-//        std::cout <<  out_buffer[y];
-//    }
+    // debug output
+    for( int y = 0; y < partial; y++) {
+        std::cout <<  out_buffer[y];
+    }
 
-    Write(sockfd, out_buffer, partial);                     // size(out_buffer) takes size of element 0 of array
+    Write(sockfd, out_buffer, size_t(partial));             // size(out_buffer) takes size of element 0 of array
     delete[] out_buffer;                                    // deallocate memory
 
     // termination notification
     char term_not[12] = "//SND_TERM\0";
-    Write( sockfd, term_not, 12 );                          // send file termination notification
+    Write( sockfd, term_not, size_t(12) );                          // send file termination notification
+
+    std::cout << "\nfile sent!\n";
 }   // END send_file()
 
 
@@ -175,24 +209,27 @@ void file_recv_handling(int sockfd, char* recvline, std::string filename, uint32
 
     // determine expected number of bits
     if( get_bits ) {                                        // if num_bits not set, read expected bits from socket
-        if ( read(sockfd, &exp_data_net, sizeof(exp_data_net)) < 0)
+        if ( read(sockfd, &exp_data_net, BYTES_IN_LONG) < 0 )
             throw std::invalid_argument("client disconnect error...");
         exp_data = ntohl(exp_data_net);                     // adjust to host byte order
+        std::cout << "exp_data_net: " << exp_data_net << std::endl;
+        std::cout << "exp_data: " << exp_data << std::endl;
     }
     else {                                                  // if num_bits has been set
         exp_data = num_bytes;
+        std::cout << "num_bytes: " << exp_data << std::endl;
     }
 
     // parse num bytes into num full buffers
     whole = exp_data/(MAXLINE-1);                           // num whole buffers
-//    std::cout << "whole buffers: " << whole << std::endl;   // debug output
+    std::cout << "whole buffers: " << whole << std::endl;   // debug output
     if( whole > 0) {
         partial = exp_data % (MAXLINE-1);   // num of bits in partial buffer
     }
     else {
         partial = exp_data;
     }
-//    std::cout << "partial buffers: " << partial << std::endl;   // debug output
+    std::cout << "partial buffer: " << partial << std::endl;   // debug output
 
 
     // read full buffers off socket and output to file
@@ -206,20 +243,23 @@ void file_recv_handling(int sockfd, char* recvline, std::string filename, uint32
         std::cout << recvline;
 
         if (strstr(recvline, "//SND_TERM") != NULL ) {  // deal with network issues. Search for file end transmission
-            std::cout << "ERROR: network issues.  end_process set to true...\n";    // TODO debug-ish
+            std::cout << "\n\nMessage irregularity.  file validity unknown...\n\n";
             end_process = true;     // network issues.  Whole buffers should not contain "//SND_TERM"
             break;                  // avoid long loops over this area due to incorrect socket I/O
         }
     }
     if(!end_process) {                                      // if //SND_TERM not found yet...
-        if ((n = read(sockfd, recvline, partial-1)) < 0)    // read final partial buffer from socket
+        size_t size = partial;                          //  partial = 0 here when transmission incorrect.  strip down to just printing messages
+        if ((n = read(sockfd, recvline, size)) < 0) {   // read final partial buffer from socket
             throw std::invalid_argument("client disconnect error...");
+        }
+
         file << recvline;                                   // output to file
-        std::cout << recvline << std::endl;
+        std::cout << "partial: " << recvline << std::endl;
     }
 
 
-    // TODO debug output
+
     std::cout << "expected num bits: " << exp_data << std::endl;
 
     file.close();                                           // close file
