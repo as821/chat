@@ -49,7 +49,7 @@ int main() {
 //            to fill a test file
 //            std::ofstream file_fill;
 //            file_fill.open(SRC_FILENAME);
-//            for(int i = 0; i < 5000; i++) {
+//            for(int i = 0; i < 500; i++) {
 //                file_fill << i;
 //                if(i%2 == 0)
 //                    file_fill << '\n';
