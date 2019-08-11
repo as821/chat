@@ -14,33 +14,41 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdint.h>
-#include <string.h>
+#include <string>
 #include <sys/time.h>
 #include <fstream>
 #include <fcntl.h>
 #include <pthread.h>
 #include <vector>
+#include <errno.h>
 
 
 // constants
-#define MAXLINE     4096                    // max buffer length
-#define BYTES_IN_LONG   4                   // num bytes in a uint32_t
-#define LISTENQ 1024                        // size of listen queue
-#define MAX_CONNECTION  100                 // max number of connections
-#define STDIN 0                             // std input fd is 0
-#define DEST_FILENAME   ""                  // input own destination file
-#define SRC_FILENAME    ""                  // input own source file (will be prompted in client either way)
+#define MAXLINE             4096            // max buffer length
+#define BYTES_IN_LONG       4               // num bytes in a uint32_t
+#define LISTENQ             1024            // size of listen queue
+#define MAX_CONNECTION      100             // max number of connections
+#define STDIN               0               // std input fd is 0
+#define PROTOCOL_MSG_LEN    12              // protocol message length (arbitrary)
+#define DEST_FILENAME   ""                  // default destination file
+#define SRC_FILENAME    ""                  // default source file
+
+
+extern int message_id_counter;              // must be global so Group_Message constructor has access
 
 
 
-// Group_Message struct
+// Group_Message struct definition
 struct Group_Message {
-    char msg [MAXLINE];                     // message text
+    char* msg;                              // message text
+    size_t msg_len;
     pthread_t have_sent [MAX_CONNECTION];   // store thread ids of all threads that have sent message
     int num_sent;                           // have_sent size
     int message_id;                         // ID number
+    bool msg_dynamic_alloc;                 // true if msg has been dynamically allocated (if needs to be deleted)
 
-    Group_Message();                        // constructor (assign message_id)
+    Group_Message();                        // constructor (assign message_id and allocate for msg)
+    ~Group_Message();                       // destructor
 };
 
 
@@ -51,8 +59,6 @@ void client(int port_input, std::string ip_input);
 void group_serv(int port_input);
 
 // file sending/reception
-bool read_line(char* buffer, int max_len);
-void read_line_c(char* buffer, int max_len);
 void send_file(std::string file_path, int sockfd);
 void file_recv_handling(int sockfd, char* recvline, std::string filename, uint32_t num_bytes, bool get_bits);
 void input_filtering(char* recvline, char* overread, uint32_t* num_bytes, bool* expect_file, bool* get_bits, int n);
