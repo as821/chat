@@ -15,3 +15,5 @@ Group server:
 Multi-threaded server that handles up to 100 ongoing connections.  Each message or file sent by a client is sent to every other connected
 client (like a chat room).  This program acts as a facilitator between clients and does not participate in message sending.  This
 allows any TCP client to have access to group message sending/receiving.  Uses non-blocking IO and sockets. Listens at port 40000.
+
+TODO: Plan to add encryption to file and message sending and improve runtime efficiency.
