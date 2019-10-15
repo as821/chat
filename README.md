@@ -16,4 +16,6 @@ Multi-threaded server that handles up to 100 ongoing connections.  Each message 
 client (like a chat room).  This program acts as a facilitator between clients and does not participate in message sending.  This
 allows any TCP client to have access to group message sending/receiving.  Uses non-blocking IO and sockets. Listens at port 40000.
 
-TODO: Plan to add encryption to file and message sending and improve runtime efficiency.
+TODO: 
+  Fix appropriate socket function wrappers to safely support incomplete client and server side transmissions.
+  Plan to add encryption to file and message sending and improve runtime efficiency.
