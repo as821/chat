@@ -19,4 +19,5 @@ allows any TCP client to have access to group message sending/receiving.  Uses n
 **TODO:<br/>**
   Fix appropriate socket function wrappers to safely support incomplete client and server side transmissions.<br/>
   Plan to add encryption to file and message sending and improve runtime efficiency (improved search/storage functions).<br/>
-  Improve messaging protocol to improve reliability and decrease overhead.
+  Improve messaging protocol to improve reliability and decrease overhead.<br/>
+  Fix reliability issues with IP address outputted by specific server functions.  Tends to output private rather than public addresses.
